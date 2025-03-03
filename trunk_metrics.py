@@ -9,18 +9,18 @@ import threading
 import time
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
 
 # Import trunk IDs from trunkID.py
 from trunkID import trunk_ids
 
 # Configuration
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REGION = "us-east-1"  # Adjust based on your Genesys Cloud region (e.g., us-east-1, eu-west-1)
+CLIENT_ID = os.getenv("PROD2_CLIENT_ID")
+CLIENT_SECRET = os.getenv("PROD2_CLIENT_SECRET")
+REGION = PureCloudPlatformClientV2.PureCloudRegionHosts.us_east_2
 
 # Set the environment based on region
-ENVIRONMENT = f"https://api.{REGION}.pure.cloud"
+ENVIRONMENT = REGION.get_api_host()
 
 # Authenticate and get an access token
 def authenticate():
@@ -56,9 +56,9 @@ def subscribe_to_trunk_metrics(ws):
     for trunk_id in trunk_ids:
         topic = f"v2.telephony.providers.edges.trunks.{trunk_id}.metrics"
         subscription = {
-            "id": "subscribe",
-            "channel": "websocket",
-            "topics": [topic]
+            "message": "subscribe",
+            "topics": [topic],
+            "correlationId":"2f23qgv8vfvafg"
         }
         ws.send(json.dumps(subscription))
         print(f"Subscribed to trunk metrics for trunk ID: {trunk_id}")
