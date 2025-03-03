@@ -45,7 +45,7 @@ def authenticate():
     try:
         api_client = PureCloudPlatformClientV2.api_client.ApiClient()
         api_client.host = ENVIRONMENT
-        auth_token = api_client.get_client_credentials_token(CLIENT_ID, CLIENT_SECRET, timeout=10)
+        auth_token = api_client.get_client_credentials_token(CLIENT_ID, CLIENT_SECRET)
         logger.info("Authentication successful")
         return api_client, auth_token
     except Exception as e:
