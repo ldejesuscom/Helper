@@ -11,7 +11,6 @@ import time
 import logging
 from collections import defaultdict
 from dash import Dash, html, dcc, Input, Output
-import plotly.graph_objs as go
 
 # Set up logging
 logging.basicConfig(
@@ -68,20 +67,16 @@ def create_notification_channel(api_client):
 def on_message(ws, message):
     try:
         data = json.loads(message)
-        topic = data.get("topic", "")
-        metrics = data.get("data", {}).get("metrics", [])
+        event_body = data.get("eventBody", {})
+        trunk_id = event_body.get("trunk", {}).get("id")
+        calls = event_body.get("calls", {})
         
-        # Extract trunk ID from topic
-        trunk_id = topic.split(".")[-2] if "trunks" in topic else None
         if trunk_id:
-            for metric in metrics:
-                metric_name = metric.get("metric")
-                value = metric.get("value", 0)
-                if metric_name == "callsInbound":
-                    call_counts[trunk_id]["inbound"] = value
-                elif metric_name == "callsOutbound":
-                    call_counts[trunk_id]["outbound"] = value
-            logger.info(f"Updated call counts for trunk {trunk_id}: {call_counts[trunk_id]}")
+            inbound_count = calls.get("inboundCallCount", 0)
+            outbound_count = calls.get("outboundCallCount", 0)
+            call_counts[trunk_id]["inbound"] = inbound_count
+            call_counts[trunk_id]["outbound"] = outbound_count
+            logger.info(f"Updated call counts for trunk {trunk_id}: Inbound={inbound_count}, Outbound={outbound_count}")
     except json.JSONDecodeError as e:
         logger.error(f"Failed to decode message: {e}")
 
@@ -144,7 +139,7 @@ def run_websocket():
             keep_alive_thread.daemon = True
             keep_alive_thread.start()
 
-            ws_thread.join()  # Wait for WebSocket thread to close before retrying
+            ws_thread.join()
         except Exception as e:
             logger.error(f"WebSocket error: {e}. Reconnecting in 5 seconds...")
             time.sleep(5)
@@ -152,43 +147,35 @@ def run_websocket():
 # Dash dashboard setup
 app = Dash(__name__)
 
-def update_graph():
-    trunks = list(call_counts.keys())
-    inbound_counts = [call_counts[trunk]["inbound"] for trunk in trunks]
-    outbound_counts = [call_counts[trunk]["outbound"] for trunk in trunks]
-
-    fig = go.Figure(data=[
-        go.Bar(name="Inbound Calls", x=trunks, y=inbound_counts),
-        go.Bar(name="Outbound Calls", x=trunks, y=outbound_counts)
-    ])
-    fig.update_layout(
-        title="Inbound and Outbound Call Counts per Trunk",
-        barmode="group",
-        xaxis_title="Trunk ID",
-        yaxis_title="Call Count",
-        legend_title="Call Type"
-    )
-    return fig
+def generate_trunk_counters():
+    counters = []
+    for trunk_id in call_counts.keys():
+        counters.append(
+            html.Div([
+                html.H3(f"Trunk: {trunk_id}", style={"fontSize": "18px", "marginBottom": "5px"}),
+                html.Div(f"Inbound Calls: {call_counts[trunk_id]['inbound']}", style={"color": "blue", "marginLeft": "20px"}),
+                html.Div(f"Outbound Calls: {call_counts[trunk_id]['outbound']}", style={"color": "green", "marginLeft": "20px"})
+            ], style={"border": "1px solid #ccc", "padding": "10px", "margin": "10px", "borderRadius": "5px"})
+        )
+    return counters
 
 app.layout = html.Div([
-    html.H1("Trunk Metrics Dashboard"),
-    dcc.Graph(id="call-count-graph"),
+    html.H1("Trunk Metrics Dashboard", style={"textAlign": "center", "marginBottom": "20px"}),
+    html.Div(id="trunk-counters"),
     dcc.Interval(id="interval-component", interval=5*1000, n_intervals=0)  # Update every 5 seconds
 ])
 
 @app.callback(
-    Output("call-count-graph", "figure"),
+    Output("trunk-counters", "children"),
     Input("interval-component", "n_intervals")
 )
 def update_dashboard(n):
-    return update_graph()
+    return generate_trunk_counters()
 
 # Main execution
 if __name__ == "__main__":
-    # Start WebSocket in a separate thread
     websocket_thread = threading.Thread(target=run_websocket)
     websocket_thread.daemon = True
     websocket_thread.start()
 
-    # Run Dash app
     app.run_server(debug=True, host="0.0.0.0", port=8050)
