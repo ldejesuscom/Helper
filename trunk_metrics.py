@@ -113,35 +113,56 @@ def keep_alive(ws):
         except Exception as e:
             logger.error(f"Keep-alive failed: {e}")
             break
-
-# WebSocket runner
+            
+# WebSocket runner with connection management
 def run_websocket():
+    api_client = None
+    channel = None
+    ws = None
+    
     while True:
         try:
-            api_client, _ = authenticate()
-            channel = create_notification_channel(api_client)
-            ws_uri = channel.connect_uri
-            logger.info(f"WebSocket URI: {ws_uri}")
+            # Authenticate only if not already authenticated
+            if api_client is None:
+                api_client, _ = authenticate()
+            
+            # Create channel only if not already created
+            if channel is None:
+                channel = create_notification_channel(api_client)
+                ws_uri = channel.connect_uri
+                logger.info(f"WebSocket URI: {ws_uri}")
+                
+                # Set up WebSocket connection
+                ws = websocket.WebSocketApp(
+                    ws_uri,
+                    on_open=on_open,
+                    on_message=on_message,
+                    on_error=on_error,
+                    on_close=on_close
+                )
+                
+                # Start WebSocket thread
+                ws_thread = threading.Thread(target=ws.run_forever)
+                ws_thread.daemon = True
+                ws_thread.start()
+                
+                # Start keep-alive thread
+                keep_alive_thread = threading.Thread(target=keep_alive, args=(ws,))
+                keep_alive_thread.daemon = True
+                keep_alive_thread.start()
 
-            ws = websocket.WebSocketApp(
-                ws_uri,
-                on_open=on_open,
-                on_message=on_message,
-                on_error=on_error,
-                on_close=on_close
-            )
-
-            ws_thread = threading.Thread(target=ws.run_forever)
-            ws_thread.daemon = True
-            ws_thread.start()
-
-            keep_alive_thread = threading.Thread(target=keep_alive, args=(ws,))
-            keep_alive_thread.daemon = True
-            keep_alive_thread.start()
-
+            # Wait for the WebSocket thread to finish (e.g., on disconnect)
             ws_thread.join()
+            
+            # If we reach here, the connection closed; reset channel and retry
+            logger.warning("WebSocket connection lost. Reconnecting...")
+            channel = None  # Force recreation of the channel on next iteration
+            time.sleep(5)
+
         except Exception as e:
             logger.error(f"WebSocket error: {e}. Reconnecting in 5 seconds...")
+            api_client = None  # Reset authentication on major failure
+            channel = None    # Reset channel on major failure
             time.sleep(5)
 
 # Dash dashboard setup
