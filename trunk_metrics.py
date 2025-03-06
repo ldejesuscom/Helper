@@ -66,6 +66,7 @@ def create_notification_channel(api_client):
 # WebSocket message handler
 def on_message(ws, message):
     try:
+        logger.debug(message)
         data = json.loads(message)
         event_body = data.get("eventBody", {})
         trunk_id = event_body.get("trunk", {}).get("id")
@@ -108,7 +109,7 @@ def keep_alive(ws):
     while True:
         time.sleep(30)
         try:
-            ws.send(json.dumps({"id": "ping"}))
+            ws.send(json.dumps({"message": "ping"}))
             logger.debug("Sent keep-alive ping")
         except Exception as e:
             logger.error(f"Keep-alive failed: {e}")
