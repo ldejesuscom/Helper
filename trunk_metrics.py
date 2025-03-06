@@ -3,7 +3,7 @@ import random
 import string
 from dotenv import load_dotenv
 import PureCloudPlatformClientV2
-from PureCloudPlatformClientV2.apis import NotificationsApi
+from PureCloudPlatformClientV2.apis import NotificationsApi, TelephonyProvidersEdgeApi
 import websocket
 import json
 import threading
@@ -14,7 +14,7 @@ from dash import Dash, html, dcc, Input, Output
 
 # Set up logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[logging.StreamHandler()]
 )
@@ -32,8 +32,9 @@ CLIENT_SECRET = os.getenv("PROD2_CLIENT_SECRET")
 REGION = PureCloudPlatformClientV2.PureCloudRegionHosts.us_east_2
 ENVIRONMENT = REGION.get_api_host()
 
-# Store call counts per trunk
+# Store call counts per trunk and trunk name mapping
 call_counts = defaultdict(lambda: {"inbound": 0, "outbound": 0})
+trunk_name_map = {}  # Dictionary to map trunk IDs to names
 
 # Generate random correlation ID
 def generate_correlation_id(length=12):
@@ -51,6 +52,17 @@ def authenticate():
     except Exception as e:
         logger.error(f"Authentication failed: {e}")
         raise
+
+# Fetch trunk names
+def fetch_trunk_names(api_client):
+    try:
+        telephony_api = TelephonyProvidersEdgeApi(api_client)
+        for trunk_id in trunk_ids:
+            trunk = telephony_api.get_telephony_providers_edges_trunk(trunk_id)
+            trunk_name_map[trunk_id] = trunk.name
+            logger.info(f"Fetched trunk name: {trunk.name} for ID: {trunk_id}")
+    except Exception as e:
+        logger.error(f"Failed to fetch trunk names: {e}")
 
 # Create notification channel
 def create_notification_channel(api_client):
@@ -114,7 +126,7 @@ def keep_alive(ws):
         except Exception as e:
             logger.error(f"Keep-alive failed: {e}")
             break
-            
+
 # WebSocket runner with connection management
 def run_websocket():
     api_client = None
@@ -123,17 +135,15 @@ def run_websocket():
     
     while True:
         try:
-            # Authenticate only if not already authenticated
             if api_client is None:
                 api_client, _ = authenticate()
+                fetch_trunk_names(api_client)  # Fetch trunk names after authentication
             
-            # Create channel only if not already created
             if channel is None:
                 channel = create_notification_channel(api_client)
                 ws_uri = channel.connect_uri
                 logger.info(f"WebSocket URI: {ws_uri}")
                 
-                # Set up WebSocket connection
                 ws = websocket.WebSocketApp(
                     ws_uri,
                     on_open=on_open,
@@ -142,28 +152,16 @@ def run_websocket():
                     on_close=on_close
                 )
                 
-                # Start WebSocket thread
-                ws_thread = threading.Thread(target=ws.run_forever)
-                ws_thread.daemon = True
-                ws_thread.start()
+                ws.run_forever()
                 
-                # Start keep-alive thread
-                keep_alive_thread = threading.Thread(target=keep_alive, args=(ws,))
-                keep_alive_thread.daemon = True
-                keep_alive_thread.start()
-
-            # Wait for the WebSocket thread to finish (e.g., on disconnect)
-            ws_thread.join()
-            
-            # If we reach here, the connection closed; reset channel and retry
-            logger.warning("WebSocket connection lost. Reconnecting...")
-            channel = None  # Force recreation of the channel on next iteration
-            time.sleep(5)
+                # keep_alive_thread = threading.Thread(target=keep_alive, args=(ws,))
+                # keep_alive_thread.daemon = True
+                # keep_alive_thread.start()
 
         except Exception as e:
             logger.error(f"WebSocket error: {e}. Reconnecting in 5 seconds...")
-            api_client = None  # Reset authentication on major failure
-            channel = None    # Reset channel on major failure
+            api_client = None
+            channel = None
             time.sleep(5)
 
 # Dash dashboard setup
@@ -172,9 +170,10 @@ app = Dash(__name__)
 def generate_trunk_counters():
     counters = []
     for trunk_id in call_counts.keys():
+        trunk_name = trunk_name_map.get(trunk_id, trunk_id)  # Use name if available, else ID
         counters.append(
             html.Div([
-                html.H3(f"Trunk: {trunk_id}", style={"fontSize": "18px", "marginBottom": "5px"}),
+                html.H3(f"Trunk: {trunk_name}", style={"fontSize": "18px", "marginBottom": "5px"}),
                 html.Div(f"Inbound Calls: {call_counts[trunk_id]['inbound']}", style={"color": "blue", "marginLeft": "20px"}),
                 html.Div(f"Outbound Calls: {call_counts[trunk_id]['outbound']}", style={"color": "green", "marginLeft": "20px"})
             ], style={"border": "1px solid #ccc", "padding": "10px", "margin": "10px", "borderRadius": "5px"})
@@ -200,4 +199,4 @@ if __name__ == "__main__":
     websocket_thread.daemon = True
     websocket_thread.start()
 
-    app.run_server(debug=True, host="0.0.0.0", port=8050)
+    app.run_server(debug=False, host="0.0.0.0", port=8050)
