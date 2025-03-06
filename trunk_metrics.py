@@ -32,8 +32,9 @@ CLIENT_SECRET = os.getenv("PROD2_CLIENT_SECRET")
 REGION = PureCloudPlatformClientV2.PureCloudRegionHosts.us_east_2
 ENVIRONMENT = REGION.get_api_host()
 
-# Store call counts per trunkbase name and mapping of trunk ID to trunkbase name
-call_counts = defaultdict(lambda: {"inbound": 0, "outbound": 0})
+# Store call counts per trunkbase name and per trunk ID, plus mapping of trunk ID to trunkbase name
+call_counts = defaultdict(lambda: {"inbound": 0, "outbound": 0})  # Pre-populated totals (not updated directly)
+trunk_counts = defaultdict(lambda: {"inbound": 0, "outbound": 0})  # Latest counts per trunk_id
 trunk_id_to_base_map = {}  # Map trunk IDs to trunkbase names
 
 # Generate random correlation ID
@@ -95,10 +96,10 @@ def on_message(ws, message):
             trunkbase_name = trunk_id_to_base_map[trunk_id]
             inbound_count = calls.get("inboundCallCount", 0)
             outbound_count = calls.get("outboundCallCount", 0)
-            # Aggregate counts by adding to existing values
-            call_counts[trunkbase_name]["inbound"] += inbound_count
-            call_counts[trunkbase_name]["outbound"] += outbound_count
-            logger.info(f"Updated call counts for trunkbase {trunkbase_name}: Inbound={call_counts[trunkbase_name]['inbound']}, Outbound={call_counts[trunkbase_name]['outbound']}")
+            # Update latest counts for this trunk_id
+            trunk_counts[trunk_id]["inbound"] = inbound_count
+            trunk_counts[trunk_id]["outbound"] = outbound_count
+            logger.info(f"Updated trunk counts for trunk ID {trunk_id} (trunkbase {trunkbase_name}): Inbound={inbound_count}, Outbound={outbound_count}")
     except json.JSONDecodeError as e:
         logger.error(f"Failed to decode message: {e}")
 
@@ -176,12 +177,21 @@ app = Dash(__name__)
 
 def generate_trunk_counters():
     counters = []
-    for trunkbase_name in call_counts.keys():
+    # Compute sums for each trunkbase_name based on trunk_counts
+    for trunkbase_name in call_counts.keys():  # Use pre-populated keys to ensure all trunks are shown
+        total_inbound = 0
+        total_outbound = 0
+        # Sum counts for all trunk_ids mapped to this trunkbase_name
+        for trunk_id, base_name in trunk_id_to_base_map.items():
+            if base_name == trunkbase_name:
+                total_inbound += trunk_counts[trunk_id]["inbound"]
+                total_outbound += trunk_counts[trunk_id]["outbound"]
+        
         counters.append(
             html.Div([
                 html.H3(f"Trunk: {trunkbase_name}", style={"fontSize": "18px", "marginBottom": "5px"}),
-                html.Div(f"Inbound Calls: {call_counts[trunkbase_name]['inbound']}", style={"color": "blue", "marginLeft": "20px"}),
-                html.Div(f"Outbound Calls: {call_counts[trunkbase_name]['outbound']}", style={"color": "green", "marginLeft": "20px"})
+                html.Div(f"Inbound Calls: {total_inbound}", style={"color": "blue", "marginLeft": "20px"}),
+                html.Div(f"Outbound Calls: {total_outbound}", style={"color": "green", "marginLeft": "20px"})
             ], style={"border": "1px solid #ccc", "padding": "10px", "margin": "10px", "borderRadius": "5px"})
         )
     return counters
