@@ -14,7 +14,7 @@ from dash import Dash, html, dcc, Input, Output
 
 # Set up logging
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[logging.StreamHandler()]
 )
@@ -122,8 +122,9 @@ def run_websocket():
     
     while True:
         try:
-            # Authenticate
-            authenticate()
+            # Authenticate only if not already authenticated
+            if api_client is None:
+                api_client, _ = authenticate()
             
             # Create channel only if not already created
             if channel is None:
@@ -155,6 +156,7 @@ def run_websocket():
             
             # If we reach here, the connection closed; reset channel and retry
             logger.warning("WebSocket connection lost. Reconnecting...")
+            channel = None  # Force recreation of the channel on next iteration
             time.sleep(5)
 
         except Exception as e:
@@ -193,7 +195,8 @@ def update_dashboard(n):
 
 # Main execution
 if __name__ == "__main__":
-
-    run_websocket()
+    websocket_thread = threading.Thread(target=run_websocket)
+    websocket_thread.daemon = True
+    websocket_thread.start()
 
     app.run_server(debug=True, host="0.0.0.0", port=8050)
