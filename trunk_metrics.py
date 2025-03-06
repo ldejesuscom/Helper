@@ -59,7 +59,7 @@ def fetch_trunk_names(api_client):
         telephony_api = TelephonyProvidersEdgeApi(api_client)
         for trunk_id in trunk_ids:
             trunk = telephony_api.get_telephony_providers_edges_trunk(trunk_id)
-            trunkbase_name = trunk.trunkBase["name"]
+            trunkbase_name = trunk.trunk_base.name
             trunk_id_to_base_map[trunk_id] = trunkbase_name
             logger.info(f"Fetched trunkbase name: {trunkbase_name} for ID: {trunk_id}")
         
