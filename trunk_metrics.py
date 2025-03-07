@@ -11,6 +11,7 @@ import time
 import logging
 from collections import defaultdict
 from dash import Dash, html, dcc, Input, Output
+from trunkID import trunk_ids # Import trunk IDs
 
 # Set up logging
 logging.basicConfig(
@@ -22,9 +23,6 @@ logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv(override=True)
-
-# Import trunk IDs
-from trunkID import trunk_ids
 
 # Configuration
 CLIENT_ID = os.getenv("PROD2_CLIENT_ID")
