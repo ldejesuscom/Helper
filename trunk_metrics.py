@@ -11,7 +11,7 @@ import time
 import logging
 from collections import defaultdict
 from dash import Dash, html, dcc, Input, Output
-from trunkID import trunk_ids # Import trunk IDs
+from trunkID import trunk_ids  # Import trunk IDs
 
 # Set up logging
 logging.basicConfig(
@@ -187,18 +187,34 @@ def generate_trunk_counters():
         
         counters.append(
             html.Div([
-                html.H3(f"Trunk: {trunkbase_name}", style={"fontSize": "18px", "marginBottom": "5px"}),
+                html.H3(f"Trunk: {trunkbase_name}", style={
+                    "fontSize": "18px", 
+                    "marginBottom": "5px", 
+                    "whiteSpace": "nowrap"  # Keep this to prevent wrapping
+                    # Removed "overflow": "hidden" and "textOverflow": "ellipsis"
+                }),
                 html.Div(f"Inbound Calls: {total_inbound}", style={"color": "blue", "marginLeft": "20px"}),
                 html.Div(f"Outbound Calls: {total_outbound}", style={"color": "green", "marginLeft": "20px"})
-            ], style={"border": "1px solid #ccc", "padding": "10px", "margin": "10px", "borderRadius": "5px"})
+            ], className="tile")
         )
     return counters
 
 app.layout = html.Div([
     html.H1("Trunk Metrics Dashboard", style={"textAlign": "center", "marginBottom": "20px"}),
-    html.Div(id="trunk-counters"),
+    html.Div(id="trunk-counters", className="grid-container"),
     dcc.Interval(id="interval-component", interval=5*1000, n_intervals=0)  # Update every 5 seconds
 ])
+
+# Add CSS styles
+app.css.append_css({
+    'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+})
+app.css.append_css({
+    'external_url': 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css'
+})
+app.css.append_css({
+    'external_url': '/assets/styles.css'
+})
 
 @app.callback(
     Output("trunk-counters", "children"),
