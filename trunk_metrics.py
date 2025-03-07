@@ -11,7 +11,7 @@ import time
 import logging
 from collections import defaultdict
 from dash import Dash, html, dcc, Input, Output
-from trunkID import trunk_ids # Import trunk IDs
+from trunkID import trunk_ids  # Import trunk IDs
 
 # Set up logging
 logging.basicConfig(
@@ -185,18 +185,44 @@ def generate_trunk_counters():
                 total_inbound += trunk_counts[trunk_id]["inbound"]
                 total_outbound += trunk_counts[trunk_id]["outbound"]
         
+        # Create a tile for each trunkbase_name
         counters.append(
-            html.Div([
-                html.H3(f"Trunk: {trunkbase_name}", style={"fontSize": "18px", "marginBottom": "5px"}),
-                html.Div(f"Inbound Calls: {total_inbound}", style={"color": "blue", "marginLeft": "20px"}),
-                html.Div(f"Outbound Calls: {total_outbound}", style={"color": "green", "marginLeft": "20px"})
-            ], style={"border": "1px solid #ccc", "padding": "10px", "margin": "10px", "borderRadius": "5px"})
+            html.Div(
+                [
+                    html.H3(f"{trunkbase_name}", style={"fontSize": "18px", "margin": "0", "textAlign": "center"}),
+                    html.Div(f"Inbound: {total_inbound}", style={"color": "blue", "fontSize": "16px", "marginTop": "10px"}),
+                    html.Div(f"Outbound: {total_outbound}", style={"color": "green", "fontSize": "16px", "marginTop": "5px"})
+                ],
+                style={
+                    "width": "200px",  # Fixed width for each tile
+                    "height": "120px",  # Fixed height for consistency
+                    "backgroundColor": "#f9f9f9",  # Light gray background
+                    "border": "1px solid #ccc",
+                    "borderRadius": "8px",
+                    "padding": "15px",
+                    "margin": "10px",
+                    "boxShadow": "2px 2px 5px rgba(0,0,0,0.1)",  # Subtle shadow for depth
+                    "display": "flex",
+                    "flexDirection": "column",
+                    "justifyContent": "center",
+                    "alignItems": "center"
+                }
+            )
         )
     return counters
 
 app.layout = html.Div([
     html.H1("Trunk Metrics Dashboard", style={"textAlign": "center", "marginBottom": "20px"}),
-    html.Div(id="trunk-counters"),
+    html.Div(
+        id="trunk-counters",
+        style={
+            "display": "flex",  # Use Flexbox for tiling
+            "flexWrap": "wrap",  # Wrap tiles to next line
+            "justifyContent": "center",  # Center tiles horizontally
+            "gap": "20px",  # Space between tiles
+            "padding": "20px"
+        }
+    ),
     dcc.Interval(id="interval-component", interval=5*1000, n_intervals=0)  # Update every 5 seconds
 ])
 
