@@ -187,7 +187,7 @@ def generate_trunk_counters():
         
         counters.append(
             html.Div([
-                html.H3(f"Trunk: {trunkbase_name}", style={"fontSize": "18px", "marginBottom": "5px"}),
+                html.H3(f"Trunk: {trunkbase_name}", style={"fontSize": "18px", "marginBottom": "5px", "whiteSpace": "nowrap", "overflow": "hidden", "textOverflow": "ellipsis"}),
                 html.Div(f"Inbound Calls: {total_inbound}", style={"color": "blue", "marginLeft": "20px"}),
                 html.Div(f"Outbound Calls: {total_outbound}", style={"color": "green", "marginLeft": "20px"})
             ], className="tile")
