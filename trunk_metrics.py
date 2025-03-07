@@ -194,8 +194,6 @@ def generate_trunk_counters():
                     html.Div(f"Outbound: {total_outbound}", style={"color": "green", "fontSize": "16px", "marginTop": "5px"})
                 ],
                 style={
-                    "width": "200px",  # Fixed width for each tile
-                    "height": "120px",  # Fixed height for consistency
                     "backgroundColor": "#f9f9f9",  # Light gray background
                     "border": "1px solid #ccc",
                     "borderRadius": "8px",
@@ -219,6 +217,7 @@ app.layout = html.Div([
             "display": "flex",  # Use Flexbox for tiling
             "flexWrap": "wrap",  # Wrap tiles to next line
             "justifyContent": "center",  # Center tiles horizontally
+            "alignItems": "center",  # Center tiles vertically
             "gap": "20px",  # Space between tiles
             "padding": "20px"
         }
